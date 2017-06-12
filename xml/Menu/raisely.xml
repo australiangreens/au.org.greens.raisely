@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/contribute/raisely</path>
+    <page_callback>CRM_Raisely_Page_Raisely</page_callback>
+    <title>Raisely</title>
+    <access_callback>1</access_callback>
+  </item>
+</menu>
