@@ -29,12 +29,82 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     foreach ($donor_keys as $key) {
       if (!array_key_exists($key, $data)) {
         return NULL;
-      };
+      }
       $donor[$key] = $data[$key];
-    };
-    $donor['contact_type'] => 'Individual',
+    }
+    $donor['contact_type'] = 'Individual';
     return $donor;
   }
+
+  function _parseContribution($json) {
+    // Raisely JSON data contains all information about a contribution
+    // Parse that data and return an associate array with the relevant
+    // details for a CiviCRM contribution record
+    
+    $data = $json['data']['result'];
+    $contrib_keys = [
+      'id', // Stripe transaction ID
+      'status', 
+      'description', // Simple description of contribution
+      'amount', // no decimal point
+      'created', // Unix epoch time
+      'currency',
+    ];
+
+    foreach ($contrib_keys as $key) {
+      if (!array_key_exists($key, $data)) {
+        return NULL;
+      }
+      $contribution[$key] = $data[$key];
+    }
+    return $contribution;
+  }
+
+  public function _lookupStateId($state) {
+    try {
+      $result = civicrm_api3('Address', 'getoptions', array(
+        'field' => 'state_province_id',
+        'context' => 'abbreviate',
+      ));
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      // Handle error here.
+      $errorMessage = $e->getMessage();
+      $errorCode = $e->getErrorCode();
+      $errorData = $e->getExtraParams();
+    }
+    $result = array_flip($result['values']);
+    if (array_key_exists($state, $result)) {
+      return $result[$state];
+    }
+    else {
+      return NULL;
+    }
+  }
+
+  public function _lookupCountryId($country) {
+    try {
+      $result = civicrm_api3('Address', 'getoptions', array(
+        'field' => 'country_id',
+        'context' => 'abbreviate',
+      ));
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      // Handle error here.
+      $errorMessage = $e->getMessage();
+      $errorCode = $e->getErrorCode();
+      $errorData = $e->getExtraParams();
+    }
+    $result = array_flip($result['values']);
+    if (array_key_exists($country,$result)) {
+      return $result[$country];
+    }
+    else {
+      return NULL;
+    }
+
+  }
+
 
   public function run() {
 
@@ -76,6 +146,92 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     }
 
     // TODO Check for existing contacts
+    $result = civicrm_api3('Contact', 'get', array(
+      'first_name' => $donor['first_name'],
+      'last_name' => $donor['last_name'],
+      'email' => $donor['email'],
+    ));
+
+    if ($result['count'] == 0) {
+      // Create new contact
+      $stateId = self::_lookupStateId($donor['private.state']);
+      $countryId = self::_lookupCountryId($donor['private.country']);
+      $params = array(
+        'first_name' => $donor['first_name'],
+        'last_name' => $donor['last_name'],
+        'contact_type' => 'Individual',
+        'api.email.create' => array(
+          'email' => $donor['email'],
+          'is_primary' => 1,
+          'location_type_id' => 5, // 'Billing'
+        ),
+        'api.address.create' => array(
+          'location_type_id' => 5,
+          'is_primary' => 1,
+          'is_billing' => 1,
+          'street_address' => $donor['private.street_address'],
+          'postal_code' => $donor['private.postcode'],
+          'city' => $donor['private.suburb'],
+          'state_province_id' => $stateId,
+          'country_id' => $countryId,
+        ),
+     ); 
+      try {
+        $result = civicrm_api3('Contact', 'create', $params);
+        print_r($result);
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        // Handle error
+        $errorMessage = $e->getMessage();
+        $errorCode = $e->getErrorCode();
+        $errorData = $e->getExtraParams();
+        echo "Uh oh!\n" . $errorMessage . "\n";
+      }
+
+    }
+    elseif ($result['count'] == 1) {
+      // Update existing contact
+      reset($result['values']);
+      $contactId = key($result['values']);
+      $stateId = self::_lookupStateId($donor['private.state']);
+      $countryId = self::_lookupCountryId($donor['private.country']);
+      $params = array(
+        'first_name' => $donor['first_name'],
+        'last_name' => $donor['last_name'],
+        'contact_type' => 'Individual',
+        'contact_id' => $contactId,
+        'api.email.create' => array(
+          'email' => $donor['email'],
+          'is_primary' => 1,
+          'location_type_id' => 5, // 'Billing'
+        ),
+        'api.address.create' => array(
+          'location_type_id' => 5,
+          'is_primary' => 1,
+          'is_billing' => 1,
+          'street_address' => $donor['private.street_address'],
+          'postal_code' => $donor['private.postcode'],
+          'city' => $donor['private.suburb'],
+          'state_province_id' => $stateId,
+          'country_id' => $countryId,
+        ),
+      );
+      try {
+        $result = civicrm_api3('Contact', 'create', $params);
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        // Handle error
+        $errorMessage = $e->getMessage();
+        $errorCode = $e->getErrorCode();
+        $errorData = $e->getExtraParams();
+        echo "Uh oh!\n" . $errorMessage . "\n";
+      }
+    }
+    else {
+      // Need to check addresses
+      echo "MORE THAN ONE MATCHING CONTACT";
+    }
+
     
     // TODO Wrap up neatly
 

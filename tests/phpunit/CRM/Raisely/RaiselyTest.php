@@ -53,10 +53,12 @@ class CRM_Raisely_RaiselyTest extends \PHPUnit_Framework_TestCase implements Hea
           'profile_url' => 'https://themyscira.raisely.com/justiceleague',
           'public.donation_amount' => '50.00',
         ],
+        'id' => 'ch_1ARxTvH4f1FCRwDmBcQn0iPC',
         'status' => 'succeeded',
-        'method' => 'CREDIT_CARD',
-        'failure_message' => null,
+        'description' => 'Donation (79082) of AUD50 from Wonder Woman (153242) to Dummy Person (80298) for Dummy Campaign (1364)',
         'currency' => 'aud',
+        'created' => 1496816247,
+        'amount' => '5000',
       ],
     ],
 
@@ -84,20 +86,20 @@ class CRM_Raisely_RaiselyTest extends \PHPUnit_Framework_TestCase implements Hea
    * Test: _parseContribution returns a well-formed donor array
    */
   public function testSuccessfulParseContribution() {
-    $expected = $test_data;
+    $expected = $test_data['data']['result'];
     unset($expected['metadata']);
-    $expected['metadata']['public.donation_amount'] = '50.00';
     $contribution = CRM_Raisely_Page_Raisely::_parseContribution($test_data);
-    $this->assertEquals($expected, $donor);
+    $this->assertEquals($expected, $contribution);
   }
 
   /**
    * Test: _parseContribution returns NULL when required fields are missing
    */
   public function testParseContributionMissingFields() {
-    unset($test_data['data']['result']['metadata']['public.donation_amount']);
-    $contrib = CRM_Raisely_Page_Raisely::_parseContribution($test_data);
-    $this->assertNull($contrib);
+    $expected = $test_data['data']['result'];
+    unset($expected['amount']);
+    $contribution = CRM_Raisely_Page_Raisely::_parseContribution($test_data);
+    $this->assertNull($contribution);
   }
 
 }
