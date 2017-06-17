@@ -186,6 +186,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         $errorCode = $e->getErrorCode();
         $errorData = $e->getExtraParams();
         echo "Uh oh!\n" . $errorMessage . "\n";
+        CRM_Utils_System::civiExit();
       }
 
     }
@@ -217,7 +218,11 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         ),
       );
       try {
-        $result = civicrm_api3('Contact', 'create', $params);
+        // This is problematic
+        // It will replace an existing address of matching type without 
+        // preserving it.
+        // TODO refactor to safeguard existing address/email info
+        $result = civicrm_api3('Contact', 'replace', $params);
       }
       catch (CiviCRM_API3_Exception $e) {
         // Handle error
@@ -225,6 +230,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         $errorCode = $e->getErrorCode();
         $errorData = $e->getExtraParams();
         echo "Uh oh!\n" . $errorMessage . "\n";
+        CRM_Utils_System::civiExit();
       }
     }
     else {
