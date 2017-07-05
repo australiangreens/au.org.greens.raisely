@@ -150,6 +150,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       'first_name' => $donor['first_name'],
       'last_name' => $donor['last_name'],
       'email' => $donor['email'],
+      'options' => array('sort' => 'created_date'),
+      'sequential' => 1,
     ));
 
     if ($result['count'] == 0) {
@@ -166,7 +168,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
           'location_type_id' => 5, // 'Billing'
         ),
         'api.address.create' => array(
-          'location_type_id' => 5,
+          'location_type_id' => 'Billing',
           'is_primary' => 1,
           'is_billing' => 1,
           'street_address' => $donor['private.street_address'],
@@ -178,7 +180,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
      ); 
       try {
         $result = civicrm_api3('Contact', 'create', $params);
-        print_r($result);
+        $contactId = $result['id'];
       }
       catch (CiviCRM_API3_Exception $e) {
         // Handle error
@@ -192,51 +194,15 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     }
     elseif ($result['count'] == 1) {
       // Update existing contact
-      reset($result['values']);
-      $contactId = key($result['values']);
-      $stateId = self::_lookupStateId($donor['private.state']);
-      $countryId = self::_lookupCountryId($donor['private.country']);
-      $params = array(
-        'first_name' => $donor['first_name'],
-        'last_name' => $donor['last_name'],
-        'contact_type' => 'Individual',
-        'contact_id' => $contactId,
-        'api.email.create' => array(
-          'email' => $donor['email'],
-          'is_primary' => 1,
-          'location_type_id' => 5, // 'Billing'
-        ),
-        'api.address.create' => array(
-          'location_type_id' => 5,
-          'is_primary' => 1,
-          'is_billing' => 1,
-          'street_address' => $donor['private.street_address'],
-          'postal_code' => $donor['private.postcode'],
-          'city' => $donor['private.suburb'],
-          'state_province_id' => $stateId,
-          'country_id' => $countryId,
-        ),
-      );
-      try {
-        // This is problematic
-        // It will replace an existing address of matching type without 
-        // preserving it.
-        // TODO refactor to safeguard existing address/email info
-        $result = civicrm_api3('Contact', 'replace', $params);
-      }
-      catch (CiviCRM_API3_Exception $e) {
-        // Handle error
-        $errorMessage = $e->getMessage();
-        $errorCode = $e->getErrorCode();
-        $errorData = $e->getExtraParams();
-        echo "Uh oh!\n" . $errorMessage . "\n";
-        CRM_Utils_System::civiExit();
-      }
+      $contactId = $result['id'];
+      self::_parseAddressforContact($donor, $contactId);
     }
     else {
-      // Need to check addresses
-      echo "MORE THAN ONE MATCHING CONTACT";
+      $contactId = $result['values'][0]['id'];
+      self::_parseAddressforContact($donor, $contactId);
     }
+ 
+    
 
     
     // TODO Wrap up neatly
@@ -244,6 +210,50 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     // Exit to stop further rendering/processing of page
     CRM_Utils_System::civiExit();
 
-  }
+    }
+
+   public static function _parseAddressforContact($donor, $contactId) {
+      $stateId = self::_lookupStateId($donor['private.state']);
+      $countryId = self::_lookupCountryId($donor['private.country']);
+      $primaryAddress = civicrm_api3('Address', 'getSingle', array('contact_id' => $contactId, 'is_primary' => 1));
+      $params = array(
+        'state_province_id' => $stateId,
+        'country_id' => $countryId,
+        'contact_id' => $contactId,
+      );
+      $keys = array(
+        'street_address' => 'private.street_address',
+        'postal_code' => 'private.postcode',
+        'city' => 'private.suburb'
+      );
+      foreach ($keys as $civiField => $raisleyField) {
+        $params[$civiField] = $donor[$raisleyField];
+      }
+      $addressIsMatched = TRUE;
+      foreach ($params as $key => $value) {
+        if ($addressIsMatched) { $addressIsMatched = ($value == $primaryAddress[$key]);}
+      }
+      if (!$addressIsMatched) {
+        try {
+          $previousAddress = civicrm_api3('Address', 'getSingle', array('contact_id' => $contactId, 'location_type_id' => 'Previous'));
+        }
+        catch (CiviCRM_API3_Exception $e) {
+          $previousAddress = array();
+        }
+        if (!empty($previousAddress)) {
+          $note = "Raisely Extension deleted the following previous address of \n {$previousAddress['street_address']} {$previousAddress['city']} {$previousAddress['state_province_id']} {$previousAddress['postal_code']} {$previousAddress['country_id']}";
+          civicrm_api3('Note', 'create', array(
+            'contact_id' => $contact_id,
+            'entity_id' => $entity_id,
+            'entity_table' => 'civicrm_contact',
+            'subject' => 'Previous Address deleted by Raisely Extension',
+            'note' => $note,
+          ));
+          civicrm_api3('Address', 'Delete', array('id' => $previousAddress['id']));
+        }
+        civicrm_api3('Address', 'create', array('id' => $primaryAddress['id'], 'is_primary' => 0, 'location_type_id' => 'Previous'));
+        civicrm_api3('Address', 'create', $params);
+      }
+    }
 
 }
