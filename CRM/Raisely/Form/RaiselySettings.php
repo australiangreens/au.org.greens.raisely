@@ -5,7 +5,7 @@
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC43/QuickForm+Reference
  */
 class CRM_Raisely_Form_RaiselySettings extends CRM_Core_Form {
-  private $_settingFilter = array('group' => 'raisley');
+  private $_settingFilter = array('group' => 'raisely');
   //everything from this line down is generic & can be re-used for a setting form in another extension
   //actually - I lied - I added a specific call in getFormSettings
   private $_submittedValues = array();
@@ -13,9 +13,10 @@ class CRM_Raisely_Form_RaiselySettings extends CRM_Core_Form {
   public function buildQuickForm() {
     $settings = $this->getFormSettings();
     foreach ($settings as $name => $setting) {
+      drupal_set_message(json_encode($setting));	    
       if (isset($setting['quick_form_type'])) {
         $add = 'add' . $setting['quick_form_type'];
-        if ($add == 'addElement') {
+	if ($add == 'addElement') {		
           $this->$add($setting['html_type'], $name, ts($setting['title']), CRM_Utils_Array::value('html_attributes', $setting, array()));
         }
         else {
