@@ -42,6 +42,13 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     // details for a CiviCRM contribution record
     
     $data = $json['data']['result'];
+    $civicrm_match_keys = [
+      'id' => 'trnx_id',
+      'description' => 'source',
+      'amount' => 'total_amount',
+      'created' => 'receive_date',
+      'currency' => 'currency',
+    ];
     $contrib_keys = [
       'id', // Stripe transaction ID
       'status', 
@@ -50,12 +57,26 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       'created', // Unix epoch time
       'currency', // 3 letter currency code
     ];
-
     foreach ($contrib_keys as $key) {
       if (!array_key_exists($key, $data)) {
         return NULL;
       }
-      $contribution[$key] = $data[$key];
+      $value = $data[$key];
+      if ($key == 'created') {
+        $dt = new DateTime($value);
+        $contribution[$civicrm_match_keys[$key]] = $dt->format('Y-m-d H:i:s');
+      }
+      elseif ($key == 'status') {
+        if ($value == 'succeeded') {
+         $contributionStatuses = CRM_Core_PseudoConstant::get('CRM_Contribute_DAO_Contribution', 'contribution_status_id', array(
+           'labelColumn' => 'name',
+           'flip' => 1,
+         ));
+         $contribution['contribution_status_id'] = $contributionStatuses['Completed'];
+      }
+      else {
+        $contribution[$civicrm_match_keys[$key]] = $data[$key];
+      }
     }
     return $contribution;
   }
@@ -244,9 +265,19 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $contactId = $result['values'][0]['id'];
       self::_parseAddressforContact($donor, $contactId);
     }
- 
-    // TODO Record contribution
 
+    $contribution['contact_id'] = $contactId;
+    try {
+      $result = civicrm_api3('Contribution', 'create', $contribution);
+    }
+    catch (CIVICRM_API3_Exception $e) {
+      // Handle error
+      $errorMessage = $e->getMessage();
+      $errorCode = $e->getErrorCode();
+      $errorData = $e->getExtraParams();
+      echo "Uh oh!\n" . $errorMessage . "\n";
+      CRM_Utils_System::civiExit();
+    }
     
     // TODO Wrap up neatly
 

@@ -6,4 +6,10 @@
     <title>Raisely</title>
     <access_callback>1</access_callback>
   </item>
+  <item>
+    <path>civicrm/raisely/settings</path>
+    <page_callback>CRM_Raisely_Form_RaiselySettings</page_callback>
+    <title>Raisely Settings</title>
+    <access_callback>administer CiviCRM</access_callback>
+  </item>
 </menu>
