@@ -3,7 +3,7 @@ $entities = array();
 try {
   $res = civicrm_api3('FinancialType', 'getSingle', array("name" => "Donation", 'return' => array('id')));
 }
-catch (CiviCRM_API3_Execption $e) {
+catch (CiviCRM_API3_Exception $e) {
   $res = NULL;
 }
 if (!$res) {
@@ -22,7 +22,7 @@ if (!$res) {
 try {
   $res = civicrm_api3('LocationType', 'getsingle', array('name' => 'Previous', 'return' => array('id')));
 }
-catch (CiviCRM_API3_Execption $e) {
+catch (CiviCRM_API3_Exception $e) {
   $res = NULL;
 }
 if (!$res) {
