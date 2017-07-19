@@ -32,8 +32,9 @@ if (!$res) {
     'params' => array(
       'version' => 3,
       'name' => 'Previous',
-      'desciption' => 'For old addresses no longer valid',
+      'description' => 'For old addresses no longer valid',
       'is_active' => 1,
+      'is_reserved' => 1,
       'is_default' => 0,
     ),
   );
