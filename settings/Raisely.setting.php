@@ -23,7 +23,7 @@
  | GNU Affero General Public License or the licensing of CiviCRM,     |
  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
  +--------------------------------------------------------------------+
-*/
+ */
 /**
  *
  * @package CRM
@@ -48,10 +48,11 @@ return array(
     'description' => ts('Set the default Financial Type to be used by Raisely Webhooks'),
     'title' => ts('Default Financial Type for Raisely'),
     'default' => $financialTypes['Donation'],
-    'html_type' => 'select',
+    'html_type' => 'Select',
+    'html_attributes' => array(),
     'pseudoconstant' => array(
-      'callback' => CRM_Financial_BAO_FinancialType::getAvailableFinancialTypes(),
+      'callback' => 'CRM_Financial_BAO_FinancialType::getAvailableFinancialTypes',
     ),
-    'quick_form_type' => 'Element',  
+    'quick_form_type' => 'Element',
   ),
-); 
+);

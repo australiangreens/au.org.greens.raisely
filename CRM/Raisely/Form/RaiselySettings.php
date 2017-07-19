@@ -5,6 +5,11 @@
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC43/QuickForm+Reference
  */
 class CRM_Raisely_Form_RaiselySettings extends CRM_Core_Form {
+
+  public function getDefaultEntity() {
+    return 'raiselySettings';
+  }
+
   private $_settingFilter = array('group' => 'raisely');
   //everything from this line down is generic & can be re-used for a setting form in another extension
   //actually - I lied - I added a specific call in getFormSettings
@@ -13,11 +18,20 @@ class CRM_Raisely_Form_RaiselySettings extends CRM_Core_Form {
   public function buildQuickForm() {
     $settings = $this->getFormSettings();
     foreach ($settings as $name => $setting) {
-      drupal_set_message(json_encode($setting));	    
       if (isset($setting['quick_form_type'])) {
+        $options = NULL;
+        if (isset($setting['pseudoconstant'])) {
+          $options = civicrm_api3('Setting', 'getoptions', array('field' => $name));
+        }
         $add = 'add' . $setting['quick_form_type'];
-	if ($add == 'addElement') {		
-          $this->$add($setting['html_type'], $name, ts($setting['title']), CRM_Utils_Array::value('html_attributes', $setting, array()));
+        if ($add == 'addElement') {
+          $this->$add(
+            $setting['html_type'],
+            $name,
+            ts($setting['title']),
+            ($options !== NULL) ? $options['values'] : CRM_Utils_Array::value('html_attributes', $setting, array()),
+            ($options !== NULL) ? CRM_Utils_Array::value('html_attributes', $setting, array()) : NULL
+          );
         }
         else {
           $this->$add($name, ts($setting['title']));
@@ -29,8 +43,8 @@ class CRM_Raisely_Form_RaiselySettings extends CRM_Core_Form {
       array(
         'type' => 'submit',
         'name' => ts('Submit'),
-        'isDefault' => TRUE
-      )
+        'isDefault' => TRUE,
+      ),
     ));
     // export form elements
     $this->assign('elementNames', $this->getRenderableElementNames());
@@ -77,8 +91,6 @@ class CRM_Raisely_Form_RaiselySettings extends CRM_Core_Form {
   }
   /**
    * Get the settings we are going to allow to be set on this form.
-   *
-   * @return array
    */
   protected function saveSettings() {
     $settings = $this->getFormSettings();
@@ -99,4 +111,5 @@ class CRM_Raisely_Form_RaiselySettings extends CRM_Core_Form {
     }
     return $defaults;
   }
+
 }
