@@ -155,8 +155,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       if (!empty($previousAddress)) {
         $note = "Raisely Extension deleted the following previous address of \n {$previousAddress['street_address']} {$previousAddress['city']} {$previousAddress['state_province_id']} {$previousAddress['postal_code']} {$previousAddress['country_id']}";
         civicrm_api3('Note', 'create', array(
-          'contact_id' => $contact_id,
-          'entity_id' => $contact_id,
+          'contact_id' => $contactId,
+          'entity_id' => $contactId,
           'entity_table' => 'civicrm_contact',
           'subject' => 'Previous Address deleted by Raisely Extension',
           'note' => $note,
