@@ -125,7 +125,12 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
   public static function _parseAddressforContact($donor, $contactId) {
     $stateId = self::_lookupStateId($donor['private.state']);
     $countryId = self::_lookupCountryId($donor['private.country']);
-    $primaryAddress = civicrm_api3('Address', 'getSingle', array('contact_id' => $contactId, 'is_primary' => 1));
+    try {
+      $primaryAddress = civicrm_api3('Address', 'getSingle', array('contact_id' => $contactId, 'is_primary' => 1));
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      $log->error('Getting Previous address failed');
+    }
     $params = array(
       'state_province_id' => $stateId,
       'country_id' => $countryId,
@@ -154,19 +159,44 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       }
       if (!empty($previousAddress)) {
         $note = "Raisely Extension deleted the following previous address of \n {$previousAddress['street_address']} {$previousAddress['city']} {$previousAddress['state_province_id']} {$previousAddress['postal_code']} {$previousAddress['country_id']}";
-        civicrm_api3('Note', 'create', array(
-          'contact_id' => $contactId,
-          'entity_id' => $contactId,
-          'entity_table' => 'civicrm_contact',
-          'subject' => 'Previous Address deleted by Raisely Extension',
-          'note' => $note,
-        ));
-        civicrm_api3('Address', 'Delete', array('id' => $previousAddress['id']));
+        try {
+          civicrm_api3('Note', 'create', array(
+            'contact_id' => $contactId,
+            'entity_id' => $contactId,
+            'entity_table' => 'civicrm_contact',
+            'subject' => 'Previous Address deleted by Raisely Extension',
+            'note' => $note,
+          ));
+        }
+        catch (CiviCRM_API3_Exception $e) {
+          $log->error('Error creating note');
+        }
+        try {
+          civicrm_api3('Address', 'Delete', array('id' => $previousAddress['id']));
+        }
+        catch (CiviCRM_API3_Exception $e) {
+          $log->error('Error deleting previous address');
+        }
       }
-      civicrm_api3('Address', 'create', array('id' => $primaryAddress['id'], 'is_primary' => 0, 'location_type_id' => 'Previous'));
-      $default_location_type = civicrm_api3('LocationType', 'getsingle', array('is_default' => 1));
+      try {
+        civicrm_api3('Address', 'create', array('id' => $primaryAddress['id'], 'is_primary' => 0, 'location_type_id' => 'Previous'));
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        $log->error('Error creating Previous address');
+      }
+      try {
+        $default_location_type = civicrm_api3('LocationType', 'getsingle', array('is_default' => 1));
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        $log->error('No default location type');
+      }
       $params['location_type_id'] = $default_location_type['id'];
-      civicrm_api3('Address', 'create', $params);
+      try {
+        civicrm_api3('Address', 'create', $params);
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        $log->error('Error creating new primray address');
+      }
     }
   }
 
