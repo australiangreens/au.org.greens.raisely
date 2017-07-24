@@ -63,8 +63,9 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       }
       $value = $data[$key];
       if ($key == 'created') {
-        $dt = new DateTime($value);
-        $contribution[$civicrm_match_keys[$key]] = $dt->format('Y-m-d H:i:s');
+        //$dt = new DateTime($value);
+        //$contribution[$civicrm_match_keys[$key]] = $dt->format('Y-m-d H:i:s');
+        $contribution[$civicrm_match_keys[$key]] = date('Y-m-d H:i:s', $value);
       }
       elseif ($key == 'status') {
         if ($value == 'succeeded') {
@@ -155,7 +156,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         $note = "Raisely Extension deleted the following previous address of \n {$previousAddress['street_address']} {$previousAddress['city']} {$previousAddress['state_province_id']} {$previousAddress['postal_code']} {$previousAddress['country_id']}";
         civicrm_api3('Note', 'create', array(
           'contact_id' => $contact_id,
-          'entity_id' => $entity_id,
+          'entity_id' => $contact_id,
           'entity_table' => 'civicrm_contact',
           'subject' => 'Previous Address deleted by Raisely Extension',
           'note' => $note,
@@ -163,6 +164,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         civicrm_api3('Address', 'Delete', array('id' => $previousAddress['id']));
       }
       civicrm_api3('Address', 'create', array('id' => $primaryAddress['id'], 'is_primary' => 0, 'location_type_id' => 'Previous'));
+      $default_location_type = civicrm_api3('LocationType', 'getsingle', array('is_default' => 1));
+      $params['location_type_id'] = $default_location_type['id'];
       civicrm_api3('Address', 'create', $params);
     }
   }
