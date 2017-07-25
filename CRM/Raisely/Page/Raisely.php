@@ -63,8 +63,6 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       }
       $value = $data[$key];
       if ($key == 'created') {
-        //$dt = new DateTime($value);
-        //$contribution[$civicrm_match_keys[$key]] = $dt->format('Y-m-d H:i:s');
         $contribution[$civicrm_match_keys[$key]] = date('Y-m-d H:i:s', $value);
       }
       elseif ($key == 'status') {
@@ -84,6 +82,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
   }
 
   public function _lookupStateId($state) {
+    $log = New CRM_Utils_SystemLogger();
     try {
       $result = civicrm_api3('Address', 'getoptions', array(
         'field' => 'state_province_id',
@@ -91,7 +90,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       ));
     }
     catch (CiviCRM_API3_Exception $e) {
-      $log->error('State Abbrieation lookup failed');
+      $log->error('State Abbreviation lookup failed');
     }
     $result = array_flip($result['values']);
     if (array_key_exists($state, $result)) {
@@ -103,6 +102,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
   }
 
   public function _lookupCountryId($country) {
+    $log = New CRM_Utils_SystemLogger();
     try {
       $result = civicrm_api3('Address', 'getoptions', array(
         'field' => 'country_id',
@@ -123,6 +123,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
   }
 
   public static function _parseAddressforContact($donor, $contactId) {
+    $log = New CRM_Utils_SystemLogger();
     $stateId = self::_lookupStateId($donor['private.state']);
     $countryId = self::_lookupCountryId($donor['private.country']);
     try {
@@ -204,7 +205,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     $log = New CRM_Utils_SystemLogger();
     // Test method - fail gracefully on non-POST methods
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-      echo "Oh dear...this is unexpected.";
+      $log->error('non-POST method detected');
       CRM_Utils_System::civiExit();
     }
 
@@ -215,19 +216,19 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     }
 
     if (is_null($data)) {
-      $log->error("You didn't give me POST JSON data!");
+      $log->error('POST data does not contain JSON');
       CRM_Utils_System::civiExit();
     }
 
     // Check that the action is "donation"
     if ($data['action'] != 'donation') {
-      $log->error("This isn't a donation");
+      $log->error('Raisely action is not a donation');
       CRM_Utils_System::civiExit();
     }
 
     $donor = self::_parseDonor($data);
     if (is_null($donor)) {
-      $log->error("Bad donor data - cannot process request");
+      $log->error('Bad donor data - cannot process request');
       CRM_Core_Error::debug_log_message('Bad donor data - cannot process request');
       CRM_Core_Error::debug_var('raisely data', $data['data']['result']['metadata'], TRUE, TRUE);
       CRM_Utils_System::civiExit();
@@ -237,7 +238,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
 
     $contribution = self::_parseContribution($data);
     if (is_null($contribution)) {
-      $log->error("Bad contribution data - cannot process request");
+      $log->error('Bad contribution data - cannot process request');
       CRM_Utils_Error::debug_log_message('Bad contribuiton data');
       CRM_Utils_Error::debug_var('raiseley data', $data['data']['result'], TRUE, TRUE);
       CRM_Utils_System::civiExit();
@@ -318,7 +319,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $errorCode = $e->getErrorCode();
       $errorData = $e->getExtraParams();
       $log->error("Uh oh!\n" . $errorMessage . "\n");
-      CRM_Core_Error::debug_error('Risely Contribution create error');
+      CRM_Core_Error::debug_error('Raisely Contribution create error');
       CRM_Core_Error::debug_var('params', $params, TRUE, TRUE);
       CRM_Utils_System::civiExit();
     }
