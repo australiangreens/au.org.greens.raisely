@@ -43,7 +43,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
 
     $data = $json['data']['result'];
     $civicrm_match_keys = [
-      'id' => 'trnx_id',
+      'id' => 'trxn_id',
       'description' => 'source',
       'amount' => 'total_amount',
       'created' => 'receive_date',
@@ -73,9 +73,16 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
           ));
           $contribution['contribution_status_id'] = $contributionStatuses['Completed'];
         }
-        else {
-          $contribution[$civicrm_match_keys[$key]] = $data[$key];
-        }
+      }
+      elseif ($key == 'currency') {
+        echo $data[$key];
+        $contribution[$civicrm_match_keys[$key]] = strtoupper($data[$key]);
+      }
+      elseif ($key == 'amount') {
+        $contribution[$civicrm_match_keys[$key]] = CRM_Utils_Money::format($data[$key] / 100, 'AUD', NULL, TRUE);
+      }
+      else {
+        $contribution[$civicrm_match_keys[$key]] = $data[$key];
       }
     }
     return $contribution;
@@ -171,11 +178,15 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         }
         catch (CiviCRM_API3_Exception $e) {
           $log->error('Error creating note');
+          CRM_Utils_Error::debug_log_message('Error creating note');
+          CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
         }
         try {
           civicrm_api3('Address', 'Delete', array('id' => $previousAddress['id']));
         }
         catch (CiviCRM_API3_Exception $e) {
+          CRM_Utils_Error::debug_log_message('Error deleting previous address');
+          CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
           $log->error('Error deleting previous address');
         }
       }
@@ -184,12 +195,17 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       }
       catch (CiviCRM_API3_Exception $e) {
         $log->error('Error creating Previous address');
+        CRM_Utils_Error::debug_log_message('Error creating previous address');
+        CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+
       }
       try {
         $default_location_type = civicrm_api3('LocationType', 'getsingle', array('is_default' => 1));
       }
       catch (CiviCRM_API3_Exception $e) {
         $log->error('No default location type');
+        CRM_Utils_Error::debug_log_message('No default location type');
+        CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
       }
       $params['location_type_id'] = $default_location_type['id'];
       try {
@@ -197,6 +213,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       }
       catch (CiviCRM_API3_Exception $e) {
         $log->error('Error creating new primray address');
+        CRM_Utils_Error::debug_log_message('No default location type');
+        CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
       }
     }
   }
@@ -208,7 +226,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $log->error('non-POST method detected');
       CRM_Utils_System::civiExit();
     }
-
+    echo "getting data";
     // Get POST data and test that it's JSON
     $data = $_REQUEST;
     if (!($data = $_POST)) {
@@ -219,13 +237,13 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $log->error('POST data does not contain JSON');
       CRM_Utils_System::civiExit();
     }
-
+    echo "hello world";
     // Check that the action is "donation"
     if ($data['action'] != 'donation') {
       $log->error('Raisely action is not a donation');
       CRM_Utils_System::civiExit();
     }
-
+    echo "Processing donor";
     $donor = self::_parseDonor($data);
     if (is_null($donor)) {
       $log->error('Bad donor data - cannot process request');
@@ -235,7 +253,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     }
 
     // Parse contribution data.
-
+    echo "Processing Contribution";
     $contribution = self::_parseContribution($data);
     if (is_null($contribution)) {
       $log->error('Bad contribution data - cannot process request');
@@ -243,7 +261,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       CRM_Utils_Error::debug_var('raiseley data', $data['data']['result'], TRUE, TRUE);
       CRM_Utils_System::civiExit();
     }
-
+    echo "Checking duplicates";
     // Check for existing contacts
     $result = civicrm_api3('Contact', 'get', array(
       'first_name' => $donor['first_name'],
@@ -302,7 +320,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $contactId = $result['values'][0]['id'];
       self::_parseAddressforContact($donor, $contactId);
     }
-
+    echo "Creating Contributon";
     $contribution['contact_id'] = $contactId;
     $raisely_FT = Civi::Settings()->get('raisely_default_financial_type');
     if (empty($raisely_FT)) {
@@ -310,6 +328,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $raisely_FT = $financialTypes['Donation'];
     }
     $contribution['financial_type_id'] = $raisely_FT;
+    $contribution['payment_instrument_id'] = 1;
+    echo json_encode($contribution);
     try {
       $result = civicrm_api3('Contribution', 'create', $contribution);
     }
@@ -319,11 +339,13 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $errorCode = $e->getErrorCode();
       $errorData = $e->getExtraParams();
       $log->error("Uh oh!\n" . $errorMessage . "\n");
-      CRM_Core_Error::debug_error('Raisely Contribution create error');
-      CRM_Core_Error::debug_var('params', $params, TRUE, TRUE);
+      echo $errorMessage;
+      CRM_Core_Error::debug_log_message($errorMessage);
+      CRM_Core_Error::debug_log_message('Raisely Contribution create error');
+      CRM_Core_Error::debug_var('params', $contribution, TRUE, TRUE);
       CRM_Utils_System::civiExit();
     }
-
+    echo "Done";
     // Exit to stop further rendering/processing of page
     CRM_Utils_System::civiExit();
   }
