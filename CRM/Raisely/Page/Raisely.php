@@ -53,7 +53,6 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       'id', // Stripe transaction ID
       'status',
       'description', // Simple description of contribution
-      'amount', // no decimal point
       'created', // Unix epoch time
       'currency', // 3 letter currency code
     ];
@@ -75,15 +74,14 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         }
       }
       elseif ($key == 'currency') {
-        echo $data[$key];
         $contribution[$civicrm_match_keys[$key]] = strtoupper($data[$key]);
-      }
-      elseif ($key == 'amount') {
-        $contribution[$civicrm_match_keys[$key]] = CRM_Utils_Money::format($data[$key] / 100, 'AUD', NULL, TRUE);
       }
       else {
         $contribution[$civicrm_match_keys[$key]] = $data[$key];
       }
+    }
+    if (array_key_exists('amount', $json['data'])) {
+      $contribution['total_amount'] = CRM_Utils_Money::format($json['data']['amount'] / 100, 'AUD', NULL, TRUE);
     }
     return $contribution;
   }
