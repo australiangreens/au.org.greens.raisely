@@ -1,0 +1,10 @@
+{
+     "name": "australian_greens/au.org.greens.raisely",
+     "type": "drupal-module",
+     "description": "Australian Greens Exension supporting Raisely webhook integration",
+     "require": {
+       "composer/installers": "~1.0",
+       "drupal/drupal": "~7"
+     }
+
+}
