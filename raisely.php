@@ -171,7 +171,7 @@ function raisely_civicrm_navigationMenu(&$menu) {
      WHERE  n.name = 'Administer'
        AND n.domain_id = " . CRM_Core_Config::domainID()
   );
-  $navID = $maxID + 288;
+  $navID = $maxID + 280;
   $navigationMenu = array(
     'attributes' => array(
       'label' => 'Raisely',
