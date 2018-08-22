@@ -85,8 +85,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         $contribution[$civicrm_match_keys[$key]] = $data[$key];
       }
     }
-    if (array_key_exists('amount', $json['data'])) {
-      $contribution['total_amount'] = CRM_Utils_Money::format($json['data']['amount'] / 100, 'AUD', NULL, TRUE);
+    if (array_key_exists('amount', $json['data']['data'])) {
+      $contribution['total_amount'] = CRM_Utils_Money::format($json['data']['data']['amount'] / 100, 'AUD', NULL, TRUE);
     }
     return $contribution;
   }
