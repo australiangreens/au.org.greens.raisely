@@ -5,8 +5,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
   private function _parseDonor($json) {
     // Raisely JSON data contains all information about a donor inside a
     // certain path of their JSON tree. It is currently
-    // JSON->data->result->metadata
-    $data = $json['data']['result']['metadata'];
+    // JSON->data->data
+    $data = $json['data']['data'];
 
     // The following field names are not guaranteed - depends on
     // configuration of specific Raisely campaigns.
@@ -14,23 +14,28 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     // the set would be passed as an array to this function
 
     $donor_keys = [
-      'first_name',
-      'last_name',
+      'firstName',
+      'lastName',
       'email',
-      'private.street_address',
-      'private.postcode',
-      'private.suburb',
-      'private.state',
-      'private.country',
+      'street_address',
+      'postcode',
+      'suburb',
+      'state',
+      'country',
     ];
 
     // Loop through donor keys, check none are missing
     // and assign to $donor variable for return
     foreach ($donor_keys as $key) {
-      if (!array_key_exists($key, $data)) {
+      if (array_key_exists($key, $data)) {
+        $donor[$key] = $data[$key];
+      }
+      elseif (array_key_exists($key, $data['private'])) {
+        $donor[$key] = $data['private'][$key];
+      }
+      else {
         return NULL;
       }
-      $donor[$key] = $data[$key];
     }
     $donor['contact_type'] = 'Individual';
     return $donor;
@@ -41,7 +46,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     // Parse that data and return an associate array with the relevant
     // details for a CiviCRM contribution record
 
-    $data = $json['data']['result'];
+    $data = $json['data']['data']['result'];
     $civicrm_match_keys = [
       'id' => 'trxn_id',
       'description' => 'source',
@@ -80,8 +85,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         $contribution[$civicrm_match_keys[$key]] = $data[$key];
       }
     }
-    if (array_key_exists('amount', $json['data'])) {
-      $contribution['total_amount'] = CRM_Utils_Money::format($json['data']['amount'] / 100, 'AUD', NULL, TRUE);
+    if (array_key_exists('amount', $json['data']['data'])) {
+      $contribution['total_amount'] = CRM_Utils_Money::format($json['data']['data']['amount'] / 100, 'AUD', NULL, TRUE);
     }
     return $contribution;
   }
@@ -129,8 +134,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
 
   public static function _parseAddressforContact($donor, $contactId) {
     $log = New CRM_Utils_SystemLogger();
-    $stateId = self::_lookupStateId($donor['private.state']);
-    $countryId = self::_lookupCountryId($donor['private.country']);
+    $stateId = self::_lookupStateId($donor['state']);
+    $countryId = self::_lookupCountryId($donor['country']);
     try {
       $primaryAddress = civicrm_api3('Address', 'getSingle', array('contact_id' => $contactId, 'is_primary' => 1));
     }
@@ -143,12 +148,12 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       'contact_id' => $contactId,
     );
     $keys = array(
-      'street_address' => 'private.street_address',
-      'postal_code' => 'private.postcode',
-      'city' => 'private.suburb',
+      'street_address' => 'street_address',
+      'postal_code' => 'postcode',
+      'city' => 'suburb',
     );
-    foreach ($keys as $civiField => $raisleyField) {
-      $params[$civiField] = $donor[$raisleyField];
+    foreach ($keys as $civiField => $raiselyField) {
+      $params[$civiField] = $donor[$raiselyField];
     }
     $addressIsMatched = TRUE;
     foreach ($params as $key => $value) {
@@ -235,9 +240,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $log->error('POST data does not contain JSON');
       CRM_Utils_System::civiExit();
     }
-    echo "hello world";
-    // Check that the action is "donation"
-    if ($data['action'] != 'donation') {
+    // Check that the event type is "donation.created"
+    if ($data['data']['type'] != 'donation.created') {
       $log->error('Raisely action is not a donation');
       CRM_Utils_System::civiExit();
     }
@@ -246,7 +250,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     if (is_null($donor)) {
       $log->error('Bad donor data - cannot process request');
       CRM_Core_Error::debug_log_message('Bad donor data - cannot process request');
-      CRM_Core_Error::debug_var('raisely data', $data['data']['result']['metadata'], TRUE, TRUE);
+      CRM_Core_Error::debug_var('raisely data', $data['data']['data'], TRUE, TRUE);
       CRM_Utils_System::civiExit();
     }
 
@@ -255,15 +259,15 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     $contribution = self::_parseContribution($data);
     if (is_null($contribution)) {
       $log->error('Bad contribution data - cannot process request');
-      CRM_Utils_Error::debug_log_message('Bad contribuiton data');
-      CRM_Utils_Error::debug_var('raiseley data', $data['data']['result'], TRUE, TRUE);
+      CRM_Utils_Error::debug_log_message('Bad contribution data');
+      CRM_Utils_Error::debug_var('raisely data', $data['data']['data'], TRUE, TRUE);
       CRM_Utils_System::civiExit();
     }
     echo "Checking duplicates";
     // Check for existing contacts
     $result = civicrm_api3('Contact', 'get', array(
-      'first_name' => $donor['first_name'],
-      'last_name' => $donor['last_name'],
+      'first_name' => $donor['firstName'],
+      'last_name' => $donor['lastName'],
       'email' => $donor['email'],
       'options' => array('sort' => 'created_date'),
       'sequential' => 1,
@@ -271,11 +275,11 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
 
     if ($result['count'] == 0) {
       // Create new contact
-      $stateId = self::_lookupStateId($donor['private.state']);
-      $countryId = self::_lookupCountryId($donor['private.country']);
+      $stateId = self::_lookupStateId($donor['state']);
+      $countryId = self::_lookupCountryId($donor['country']);
       $params = array(
-        'first_name' => $donor['first_name'],
-        'last_name' => $donor['last_name'],
+        'first_name' => $donor['firstName'],
+        'last_name' => $donor['lastName'],
         'contact_type' => 'Individual',
         'api.email.create' => array(
           'email' => $donor['email'],
@@ -286,9 +290,9 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
           'location_type_id' => 'Billing',
           'is_primary' => 1,
           'is_billing' => 1,
-          'street_address' => $donor['private.street_address'],
-          'postal_code' => $donor['private.postcode'],
-          'city' => $donor['private.suburb'],
+          'street_address' => $donor['street_address'],
+          'postal_code' => $donor['postcode'],
+          'city' => $donor['suburb'],
           'state_province_id' => $stateId,
           'country_id' => $countryId,
         ),
