@@ -240,8 +240,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $log->error('POST data does not contain JSON');
       CRM_Utils_System::civiExit();
     }
-    // Check that the event type is "donation.created"
-    if ($data['data']['type'] != 'donation.created') {
+    // Check that the event type is "donation.succeeded"
+    if ($data['data']['type'] != 'donation.succeeded') {
       $log->error('Raisely action is not a donation');
       CRM_Utils_System::civiExit();
     }
