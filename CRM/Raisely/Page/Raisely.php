@@ -269,6 +269,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         CRM_Core_Error::debug_log_message('No default location type');
         CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
       }
+      return;
     }
 
     // There is a phone already on file
