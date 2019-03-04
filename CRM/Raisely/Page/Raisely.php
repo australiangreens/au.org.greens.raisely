@@ -275,7 +275,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     // There is a phone already on file
 
     // Test if they match
-    $donor_phone_numeric = preg_replace("/^[0-9]/", "", $donor['phone_number']);
+    $donor_phone_numeric = preg_replace("/[^0-9]/", "", $donor['phone_number']);
     $phoneIsMatch = ($donor['phone_number'] == $phone_primary);
 
     // They don't match - search for Previous
