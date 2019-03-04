@@ -35,6 +35,9 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       elseif (array_key_exists($key, $data['private'])) {
         $donor[$key] = $data['private'][$key];
       }
+      elseif ($donor_keys == 'foreign_donor' or $donor_keys == 'phone_number') {
+        // TODO: I know. I'm sorry
+      }
       else {
         return NULL;
       }
@@ -157,6 +160,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       'state_province_id' => $stateId,
       'country_id' => $countryId,
       'contact_id' => $contactId,
+      'is_primary' => 1,
     );
     $keys = array(
       'street_address' => 'street_address',
@@ -192,15 +196,15 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
         }
         catch (CiviCRM_API3_Exception $e) {
           $log->error('Error creating note');
-          CRM_Utils_Error::debug_log_message('Error creating note');
-          CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+          CRM_Core_Error::debug_log_message('Error creating note');
+          CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
         }
         try {
           civicrm_api3('Address', 'Delete', array('id' => $previousAddress['id']));
         }
         catch (CiviCRM_API3_Exception $e) {
-          CRM_Utils_Error::debug_log_message('Error deleting previous address');
-          CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+          CRM_Core_Error::debug_log_message('Error deleting previous address');
+          CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
           $log->error('Error deleting previous address');
         }
       }
@@ -209,8 +213,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       }
       catch (CiviCRM_API3_Exception $e) {
         $log->error('Error creating Previous address');
-        CRM_Utils_Error::debug_log_message('Error creating previous address');
-        CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+        CRM_Core_Error::debug_log_message('Error creating previous address');
+        CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
 
       }
       try {
@@ -218,8 +222,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       }
       catch (CiviCRM_API3_Exception $e) {
         $log->error('No default location type');
-        CRM_Utils_Error::debug_log_message('No default location type');
-        CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+        CRM_Core_Error::debug_log_message('No default location type');
+        CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
       }
       $params['location_type_id'] = $default_location_type['id'];
       try {
@@ -227,8 +231,112 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       }
       catch (CiviCRM_API3_Exception $e) {
         $log->error('Error creating new primray address');
-        CRM_Utils_Error::debug_log_message('No default location type');
-        CRM_Utils_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+        CRM_Core_Error::debug_log_message('No default location type');
+        CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+      }
+    }
+  }
+
+  public static function _parsePhoneforContact($donor, $contactId) {
+    $log = New CRM_Utils_SystemLogger();
+
+    // Get default location type ID
+          try {
+        $default_location_type = civicrm_api3('LocationType', 'getsingle', array('is_default' => 1));
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        $log->error('No default location type');
+        CRM_Core_Error::debug_log_message('No default location type');
+        CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+      }
+
+    try {
+      // Is there a phone already on file?
+      $result = civicrm_api3('Phone', 'getSingle', array('contact_id' => $contactId, 'is_primary' => 1));
+      $phone_primary = $result['phone_numeric'];
+      $phone_primary_id = $result['id'];
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      // No phone already on file
+      $params['location_type_id'] = $default_location_type['id'];
+      $params['phone'] = $donor['phone_number'];
+      $params['contact_id'] = $contactId;
+      $params['is_primary'] = 1;
+      try {
+        civicrm_api3('Phone', 'create', $params);
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        $log->error('Error creating new primray phone');
+        CRM_Core_Error::debug_log_message('No default location type');
+        CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+      }
+      return;
+    }
+
+    // There is a phone already on file
+
+    // Test if they match
+    $donor_phone_numeric = preg_replace("/[^0-9]/", "", $donor['phone_number']);
+    $phoneIsMatch = ($donor['phone_number'] == $phone_primary);
+
+    // They don't match - search for Previous
+    if (!$phoneIsMatch) {
+      try {
+        $result = civicrm_api3('Phone', 'getSingle', array('contact_id' => $contactId, 'location_type_id' => 'Previous'));
+        $phone_previous = $result['phone'];
+        $phone_previous_id = $result['id'];
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        $phone_previous = "";
+      }
+      // Previous number found - deleting and leaving a note
+      if (!empty($phone_previous)) {
+        $note = "Raisely Extension deleted the following previous phone of \n {$phone_previous}";
+        try {
+          civicrm_api3('Note', 'create', array(
+            'contact_id' => $contactId,
+            'entity_id' => $contactId,
+            'entity_table' => 'civicrm_contact',
+            'subject' => 'Previous Phone deleted by Raisely Extension',
+            'note' => $note,
+          ));
+        }
+        catch (CiviCRM_API3_Exception $e) {
+          $log->error('Error creating note');
+          CRM_Core_Error::debug_log_message('Error creating note');
+          CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+        }
+        try {
+          civicrm_api3('Phone', 'Delete', array('id' => $phone_previous_id));
+        }
+        catch (CiviCRM_API3_Exception $e) {
+          CRM_Core_Error::debug_log_message('Error deleting previous phone');
+          CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+          $log->error('Error deleting previous phone');
+        }
+      }
+      // Use current number to create Previous
+      try {
+        civicrm_api3('Phone', 'create', array('id' => $phone_primary_id, 'is_primary' => 0, 'location_type_id' => 'Previous'));
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        $log->error('Error creating Previous phone');
+        CRM_Core_Error::debug_log_message('Error creating previous phone');
+        CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
+      }
+
+      // Now create new number
+      $params['location_type_id'] = $default_location_type['id'];
+      $params['phone'] = $donor['phone_number'];
+      $params['contact_id'] = $contactId;
+      $params['is_primary'] = 1;
+      try {
+        civicrm_api3('Phone', 'create', $params);
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        $log->error('Error creating new primray phone');
+        CRM_Core_Error::debug_log_message('No default location type');
+        CRM_Core_Error::debug_var('message', $e->getMessage(), TRUE, TRUE);
       }
     }
   }
@@ -270,8 +378,8 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     $contribution = self::_parseContribution($data);
     if (is_null($contribution)) {
       $log->error('Bad contribution data - cannot process request');
-      CRM_Utils_Error::debug_log_message('Bad contribution data');
-      CRM_Utils_Error::debug_var('raisely data', $data['data']['data'], TRUE, TRUE);
+      CRM_Core_Error::debug_log_message('Bad contribution data');
+      CRM_Core_Error::debug_var('raisely data', $data['data']['data'], TRUE, TRUE);
       CRM_Utils_System::civiExit();
     }
     echo "Checking duplicates";
@@ -340,10 +448,16 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       // Update existing contact
       $contactId = $result['id'];
       self::_parseAddressforContact($donor, $contactId);
+      if (!empty($donor['phone_number'])) {
+        self::_parsePhoneforContact($donor, $contactId);
+      }
     }
     else {
       $contactId = $result['values'][0]['id'];
       self::_parseAddressforContact($donor, $contactId);
+      if (!empty($donor['phone_number'])) {
+        self::_parsePhoneforContact($donor, $contactId);
+      }
     }
     $contribution['contact_id'] = $contactId;
     $raisely_FT = Civi::Settings()->get('raisely_default_financial_type');
