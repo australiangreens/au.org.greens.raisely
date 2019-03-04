@@ -95,7 +95,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
 
     $foreign_donor = $json['data']['data']['private']['foreign_donor'];
     if ($foreign_donor) {
-      $contribution .= " - Foreign Donor Affirmation Recorded";
+      $contribution['source'] .= " - Foreign Donor Affirmation Recorded";
     }
 
     return $contribution;
