@@ -23,6 +23,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       'state',
       'country',
       'foreign_donor',
+      'phone_number',
     ];
 
     // Loop through donor keys, check none are missing
@@ -307,6 +308,18 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
           'country_id' => $countryId,
         ),
       );
+
+      // Add phone number if it exists in the source data
+
+      if ($donor['phone_number']) {
+        $params['api.phone.create'] =  array(
+          'location_type_id' => 'Billing',
+          'is_primary' => 1,
+          'is_billing' => 1,
+          'phone' => $donor['phone_number'],
+        );
+      }
+
       try {
         $result = civicrm_api3('Contact', 'create', $params);
         $contactId = $result['id'];
