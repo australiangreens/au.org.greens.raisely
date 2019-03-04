@@ -160,6 +160,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       'state_province_id' => $stateId,
       'country_id' => $countryId,
       'contact_id' => $contactId,
+      'is_primary' => 1,
     );
     $keys = array(
       'street_address' => 'street_address',
