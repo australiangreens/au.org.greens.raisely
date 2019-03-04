@@ -22,6 +22,7 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       'suburb',
       'state',
       'country',
+      'foreign_donor',
     ];
 
     // Loop through donor keys, check none are missing
@@ -88,6 +89,15 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     if (array_key_exists('amount', $json['data']['data'])) {
       $contribution['total_amount'] = CRM_Utils_Money::format($json['data']['data']['amount'] / 100, 'AUD', NULL, TRUE);
     }
+
+    // Test for the foreign donor affirmation
+    // Modify the $contribution['source'] string if so
+
+    $foreign_donor = $json['data']['data']['private']['foreign_donor'];
+    if ($foreign_donor) {
+      $contribution .= " - Foreign Donor Affirmation Recorded";
+    }
+
     return $contribution;
   }
 
@@ -322,7 +332,6 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
       $contactId = $result['values'][0]['id'];
       self::_parseAddressforContact($donor, $contactId);
     }
-    echo "Creating Contributon";
     $contribution['contact_id'] = $contactId;
     $raisely_FT = Civi::Settings()->get('raisely_default_financial_type');
     if (empty($raisely_FT)) {
@@ -331,7 +340,6 @@ class CRM_Raisely_Page_Raisely extends CRM_Core_Page {
     }
     $contribution['financial_type_id'] = $raisely_FT;
     $contribution['payment_instrument_id'] = 1;
-    echo json_encode($contribution);
     try {
       $result = civicrm_api3('Contribution', 'create', $contribution);
     }
